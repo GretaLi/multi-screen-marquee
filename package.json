@@ -1,0 +1,22 @@
+{
+  "name": "multi-screen-marquee",
+  "version": "1.0.0",
+  "description": "Multi-screen synchronized marquee system with WebSocket sync",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "marquee",
+    "websocket",
+    "multi-screen",
+    "sync"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
+  }
+}

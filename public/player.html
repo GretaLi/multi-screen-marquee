@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>跑馬燈播放器</title>
+  <!--
+    ========================================
+    全螢幕操作指引
+    ========================================
+    1. 按 F11 或點擊頁面右上角「全螢幕」按鈕
+    2. Windows: F11 / Mac: Ctrl+Cmd+F
+    3. 若需退出全螢幕，按 ESC 或 F11
+    4. 建議：關閉螢幕保護程式與自動休眠
+
+    Query 參數說明：
+    - playerId: 播放器 ID（用於識別）
+    - screenCount: 總螢幕數（預設 2）
+    - screenIndex: 此螢幕位置（1~N）
+    - speed: 跑馬燈速度 px/sec（預設 120）
+
+    自動寬度計算：
+    - 每個 player 會自動回報實際螢幕寬度給 server
+    - 使用控制台「一鍵套用配置」時，server 會自動計算各螢幕的累計偏移
+    - 支援不同寬度的螢幕組合
+
+    範例 URL：
+    /player?playerId=screen-1
+    /player?playerId=screen-2
+    ========================================
+  -->
+  <!-- Google Fonts - 與控制台相同 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Noto+Serif+TC:wght@700;900&family=LXGW+WenKai+TC&family=Cubic+11&family=Dela+Gothic+One&family=Rampart+One&family=Hachi+Maru+Pop&family=Yusei+Magic&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /* 跑馬燈容器 */
+    .marquee-viewport {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      transition: background-color 0.3s;
+    }
+
+    .marquee-track {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      will-change: transform;
+      /* 使用 GPU 加速 */
+      backface-visibility: hidden;
+      perspective: 1000px;
+      display: flex;
+      align-items: center;
+    }
+
+    .marquee-content {
+      display: inline-flex;
+      align-items: center;
+      gap: 30px;
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Microsoft JhengHei', sans-serif;
+      font-size: 120px;
+      font-weight: 700;
+      color: #00d4ff;
+      text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+      padding-right: 200px; /* 內容間隔 */
+    }
+
+    .marquee-content img {
+      height: 1em; /* 與字體大小相同 */
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .marquee-content .text {
+      white-space: nowrap;
+    }
+
+    /* 狀態顯示（除錯用，可隱藏） */
+    .debug-panel {
+      position: fixed;
+      bottom: 10px;
+      left: 40px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #0f0;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1000;
+      display: none; /* 預設隱藏，按 D 鍵切換 */
+    }
+
+    .debug-panel.visible {
+      display: block;
+    }
+
+    .debug-panel p {
+      margin: 3px 0;
+    }
+
+    .debug-panel .status-ok {
+      color: #0f0;
+    }
+
+    .debug-panel .status-warn {
+      color: #ff0;
+    }
+
+    .debug-panel .status-error {
+      color: #f00;
+    }
+
+    /* 全螢幕按鈕 */
+    .fullscreen-btn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 212, 255, 0.3);
+      color: #fff;
+      border: 1px solid #00d4ff;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1000;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .fullscreen-btn:hover {
+      background: rgba(0, 212, 255, 0.5);
+    }
+
+    /* 連線狀態指示燈 */
+    .connection-indicator {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #f00;
+      z-index: 1000;
+      transition: background 0.3s;
+    }
+
+    .connection-indicator.connected {
+      background: #0f0;
+    }
+
+    .connection-indicator.reconnecting {
+      background: #ff0;
+      animation: blink 0.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* prefers-reduced-motion 支援 */
+    @media (prefers-reduced-motion: reduce) {
+      .marquee-track {
+        animation: none !important;
+      }
+    }
+
+    /* 全螢幕時隱藏控制元件 */
+    :fullscreen .fullscreen-btn,
+    :fullscreen .connection-indicator {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    /* 全螢幕時點擊後顯示控制元件 */
+    :fullscreen .controls-visible .fullscreen-btn,
+    :fullscreen .controls-visible .connection-indicator {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 連線狀態指示燈可點擊 */
+    .connection-indicator {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- 跑馬燈視口 -->
+  <div class="marquee-viewport" id="viewport">
+    <div class="marquee-track" id="marqueeTrack">
+      <div class="marquee-content" id="content1">
+        <span class="text">歡迎蒞臨！Welcome to the Exhibition!</span>
+      </div>
+      <div class="marquee-content" id="content2">
+        <span class="text">歡迎蒞臨！Welcome to the Exhibition!</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全螢幕按鈕 -->
+  <button class="fullscreen-btn" onclick="toggleFullscreen()">全螢幕 (F11)</button>
+
+  <!-- 連線狀態指示燈 -->
+  <div class="connection-indicator" id="connectionIndicator"></div>
+
+  <!-- 除錯面板 -->
+  <div class="debug-panel" id="debugPanel">
+    <p><strong>Player Debug</strong></p>
+    <p>ID: <span id="debugPlayerId">-</span></p>
+    <p>Config: <span id="debugConfig">-</span></p>
+    <p>Connection: <span id="debugConnection">-</span></p>
+    <p>Server Time: <span id="debugServerTime">-</span></p>
+    <p>Global X: <span id="debugGlobalX">-</span></p>
+    <p>Display X: <span id="debugDisplayX">-</span></p>
+    <p>FPS: <span id="debugFps">-</span></p>
+  </div>
+
+  <script>
+    /**
+     * ========================================
+     * 跑馬燈核心邏輯說明
+     * ========================================
+     *
+     * 1. 全域位移 (globalX):
+     *    globalX = -(timeSinceStart * speedPxPerSec)
+     *    - timeSinceStart 從 server startAt 計算
+     *    - 所有螢幕使用相同 globalX，確保同步
+     *
+     * 2. 螢幕切片偏移 (sliceOffset):
+     *    a) 優先使用 server 下發的 offsetPx（點擊「一鍵套用」後生效）
+     *       - 支援不同寬度的螢幕組合
+     *       - 例如：螢幕1(1920px)、螢幕2(1080px)、螢幕3(1920px)
+     *         - 螢幕1 offset = 0
+     *         - 螢幕2 offset = 1920
+     *         - 螢幕3 offset = 1920 + 1080 = 3000
+     *    b) Fallback（未點擊一鍵套用時）：
+     *       sliceOffset = (screenIndex - 1) * screenWidth
+     *       - 假設所有螢幕寬度相同
+     *
+     * 3. 顯示位移 (displayX):
+     *    displayX = globalX - sliceOffset
+     *    - 這是實際套用到 transform 的值
+     *
+     * 4. 無縫循環:
+     *    - 內容複製兩份（content1 + content2）
+     *    - 總軌道寬度 = 單份內容寬度 * 2
+     *    - 當 displayX 超出一個內容寬度時，取 modulus 回捲
+     *    - 公式: wrappedX = displayX % contentWidth
+     *           如果 wrappedX > 0，則 wrappedX -= contentWidth
+     *
+     * ========================================
+     */
+
+    // ============ 配置與狀態 ============
+    const params = new URLSearchParams(window.location.search);
+
+    let config = {
+      playerId: params.get('playerId') || `player-${Date.now()}`,
+      screenCount: parseInt(params.get('screenCount')) || 2,
+      screenIndex: parseInt(params.get('screenIndex')) || 1,
+      offsetPx: 0, // 由 server 計算的累計偏移
+      speed: parseInt(params.get('speed')) || 120
+    };
+
+    // 樣式設定（從控制台接收）
+    let styles = {
+      fontFamily: "'Noto Sans TC', sans-serif",
+      fontSize: 120,
+      fontWeight: '700',
+      letterSpacing: 0,
+      textColor: '#00d4ff',
+      bgColor: '#000000',
+      shadowColor: '#00d4ff',
+      shadowBlur: 20
+    };
+
+    // 圖片列表
+    let images = [];
+
+    // 同步狀態
+    let ws = null;
+    let isConnected = false;
+    let startAt = Date.now();
+    let serverNow = Date.now();
+    let lastSyncPerfNow = performance.now();
+    let reconnectAttempts = 0;
+    let isOfflineMode = true;
+
+    // 跑馬燈狀態
+    let marqueeText = '歡迎蒞臨！Welcome to the Exhibition!';
+    let contentWidth = 0;
+    let animationId = null;
+
+    // FPS 計算
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
+    let currentFps = 0;
+
+    // prefers-reduced-motion
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ============ DOM 元素 ============
+    const viewport = document.getElementById('viewport');
+    const track = document.getElementById('marqueeTrack');
+    const content1 = document.getElementById('content1');
+    const content2 = document.getElementById('content2');
+    const indicator = document.getElementById('connectionIndicator');
+    const debugPanel = document.getElementById('debugPanel');
+
+    // ============ WebSocket 連線 ============
+    function getWsUrl() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}`;
+    }
+
+    function connect() {
+      const url = getWsUrl();
+      console.log(`[WS] Connecting to ${url}...`);
+
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        console.error('[WS] Connection failed:', e);
+        scheduleReconnect();
+        return;
+      }
+
+      ws.onopen = () => {
+        isConnected = true;
+        isOfflineMode = false;
+        reconnectAttempts = 0;
+        updateConnectionStatus('connected');
+        console.log('[WS] Connected');
+
+        // 回報實際螢幕寬度
+        const currentWidth = window.innerWidth;
+        console.log('[WS] Sending hello with actualWidth:', currentWidth);
+        ws.send(JSON.stringify({
+          type: 'hello',
+          role: 'player',
+          playerId: config.playerId,
+          actualWidth: currentWidth,
+          config: {
+            screenCount: config.screenCount,
+            screenIndex: config.screenIndex,
+            offsetPx: config.offsetPx
+          }
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        handleMessage(msg);
+      };
+
+      ws.onclose = () => {
+        isConnected = false;
+        updateConnectionStatus('reconnecting');
+        console.log('[WS] Disconnected');
+
+        if (!isOfflineMode) {
+          console.log('[WS] Switching to offline mode');
+          isOfflineMode = true;
+        }
+
+        scheduleReconnect();
+      };
+
+      ws.onerror = (err) => {
+        console.error('[WS] Error:', err);
+      };
+    }
+
+    function scheduleReconnect() {
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+      reconnectAttempts++;
+      console.log(`[WS] Reconnecting in ${delay}ms...`);
+      setTimeout(connect, delay);
+    }
+
+    function handleMessage(msg) {
+      switch (msg.type) {
+        case 'init':
+          startAt = msg.startAt;
+          serverNow = msg.now;
+          lastSyncPerfNow = performance.now();
+          isOfflineMode = false;
+
+          if (msg.config) {
+            applyConfig(msg.config);
+          }
+          if (msg.playerId) {
+            config.playerId = msg.playerId;
+          }
+
+          console.log(`[INIT] startAt=${startAt}, now=${serverNow}`);
+          break;
+
+        case 'tick':
+          serverNow = msg.now;
+          lastSyncPerfNow = performance.now();
+          isOfflineMode = false;
+          break;
+
+        case 'config':
+          applyConfig(msg);
+          console.log('[CONFIG] Updated:', msg);
+          break;
+
+        case 'marquee':
+          // 更新跑馬燈內容與樣式
+          marqueeText = msg.text || marqueeText;
+          config.speed = msg.speed || config.speed;
+
+          if (msg.styles) {
+            styles = { ...styles, ...msg.styles };
+            console.log('[MARQUEE] Styles updated:', styles);
+          }
+
+          // 處理圖片（包含空陣列的情況）
+          if (Array.isArray(msg.images)) {
+            images = msg.images;
+            console.log('[MARQUEE] Images updated, count:', images.length);
+          }
+
+          updateMarqueeContent();
+          applyStyles();
+          console.log('[MARQUEE] Updated, text length:', marqueeText.length, 'images:', images.length);
+          break;
+
+        case 'reset':
+          startAt = msg.startAt;
+          serverNow = msg.now;
+          lastSyncPerfNow = performance.now();
+          console.log('[RESET] startAt reset to', startAt);
+          break;
+      }
+    }
+
+    function applyConfig(newConfig) {
+      if (newConfig.screenCount !== undefined) {
+        config.screenCount = newConfig.screenCount;
+      }
+      if (newConfig.screenIndex !== undefined) {
+        config.screenIndex = newConfig.screenIndex;
+      }
+      if (newConfig.offsetPx !== undefined) {
+        config.offsetPx = newConfig.offsetPx;
+      }
+      console.log('[CONFIG] Applied:', config);
+    }
+
+    function updateConnectionStatus(status) {
+      indicator.className = 'connection-indicator';
+      if (status === 'connected') {
+        indicator.classList.add('connected');
+      } else if (status === 'reconnecting') {
+        indicator.classList.add('reconnecting');
+      }
+    }
+
+    // ============ 樣式套用 ============
+    function applyStyles() {
+      // 背景色
+      viewport.style.backgroundColor = styles.bgColor;
+
+      // 文字樣式
+      const contentElements = document.querySelectorAll('.marquee-content');
+      contentElements.forEach(el => {
+        el.style.fontFamily = styles.fontFamily;
+        el.style.fontSize = styles.fontSize + 'px';
+        el.style.fontWeight = styles.fontWeight;
+        el.style.letterSpacing = styles.letterSpacing + 'px';
+        el.style.color = styles.textColor;
+        el.style.textShadow = `0 0 ${styles.shadowBlur}px ${styles.shadowColor}`;
+      });
+
+      // 圖片高度也跟著字體大小
+      const imgElements = document.querySelectorAll('.marquee-content img');
+      imgElements.forEach(img => {
+        img.style.height = styles.fontSize + 'px';
+      });
+    }
+
+    // ============ 跑馬燈渲染 ============
+    function updateMarqueeContent() {
+      // 組合內容（圖片 + 文字）
+      let html = '';
+
+      console.log('[CONTENT] Building HTML with', images.length, 'images');
+
+      images.forEach((img, idx) => {
+        // 檢查是否為有效的圖片來源
+        if (img && (img.startsWith('data:') || img.startsWith('http'))) {
+          html += `<img src="${img}" alt="marquee image ${idx}" onerror="console.error('[IMG] Failed to load image ${idx}')">`;
+          console.log('[CONTENT] Added image', idx, 'type:', img.substring(0, 30));
+        }
+      });
+
+      html += `<span class="text">${marqueeText}</span>`;
+
+      content1.innerHTML = html;
+      content2.innerHTML = html;
+
+      // 套用圖片樣式
+      applyStyles();
+
+      // 重新計算內容寬度（等待圖片載入）
+      setTimeout(() => {
+        contentWidth = content1.offsetWidth;
+        console.log('[MARQUEE] Content width:', contentWidth);
+      }, 100);
+    }
+
+    function getScreenWidth() {
+      return window.innerWidth;
+    }
+
+    function getSyncedNow() {
+      if (isOfflineMode) {
+        return Date.now();
+      }
+      return serverNow + (performance.now() - lastSyncPerfNow);
+    }
+
+    function render() {
+      if (prefersReducedMotion) {
+        track.style.transform = 'translateX(0) translateY(-50%)';
+        animationId = requestAnimationFrame(render);
+        return;
+      }
+
+      const now = getSyncedNow();
+      const timeSinceStart = now - startAt;
+
+      // 1. 計算全域位移
+      const globalX = -(timeSinceStart / 1000) * config.speed;
+
+      // 2. 計算螢幕切片偏移
+      //    - 優先使用 server 下發的 offsetPx（支援不同寬度螢幕）
+      //    - 如果 server 未設定（offsetPx=0 且非第一台螢幕），則用傳統公式作為 fallback
+      let sliceOffset = config.offsetPx;
+      if (sliceOffset === 0 && config.screenIndex > 1) {
+        // Fallback: 假設所有螢幕寬度相同
+        sliceOffset = (config.screenIndex - 1) * window.innerWidth;
+      }
+
+      // 3. 計算顯示位移
+      let displayX = globalX - sliceOffset;
+
+      // 4. 無縫循環（取 modulus）
+      if (contentWidth > 0) {
+        displayX = displayX % contentWidth;
+        if (displayX > 0) {
+          displayX -= contentWidth;
+        }
+      }
+
+      // 套用 transform（GPU 加速）
+      track.style.transform = `translateX(${displayX}px) translateY(-50%)`;
+
+      // 更新除錯資訊
+      updateDebugInfo(globalX, displayX, timeSinceStart);
+
+      // FPS 計算
+      frameCount++;
+      const fpsNow = performance.now();
+      if (fpsNow - lastFpsTime >= 1000) {
+        currentFps = frameCount;
+        frameCount = 0;
+        lastFpsTime = fpsNow;
+      }
+
+      animationId = requestAnimationFrame(render);
+    }
+
+    function updateDebugInfo(globalX, displayX, timeSinceStart) {
+      if (!debugPanel.classList.contains('visible')) return;
+
+      // 計算實際使用的 offset（與 render 函數相同邏輯）
+      let actualOffset = config.offsetPx;
+      let offsetSource = 'server';
+      if (actualOffset === 0 && config.screenIndex > 1) {
+        actualOffset = (config.screenIndex - 1) * window.innerWidth;
+        offsetSource = 'fallback';
+      }
+
+      document.getElementById('debugPlayerId').textContent = config.playerId;
+      document.getElementById('debugConfig').textContent =
+        `${config.screenIndex}/${config.screenCount} | W:${getScreenWidth()}px | Off:${actualOffset}px (${offsetSource})`;
+      document.getElementById('debugConnection').textContent =
+        isOfflineMode ? 'OFFLINE' : 'SYNCED';
+      document.getElementById('debugConnection').className =
+        isOfflineMode ? 'status-warn' : 'status-ok';
+      document.getElementById('debugServerTime').textContent =
+        new Date(getSyncedNow()).toLocaleTimeString();
+      document.getElementById('debugGlobalX').textContent = Math.round(globalX);
+      document.getElementById('debugDisplayX').textContent = Math.round(displayX);
+      document.getElementById('debugFps').textContent = currentFps;
+    }
+
+    // ============ 全螢幕 ============
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.error('Fullscreen error:', err);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    // 鍵盤快捷鍵
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'd' || e.key === 'D') {
+        debugPanel.classList.toggle('visible');
+      }
+      if (e.key === 'f' || e.key === 'F' || e.key === 'F11') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    });
+
+    // ============ 全螢幕控制元件顯示邏輯 ============
+    let controlsTimeout = null;
+
+    function showControlsTemporarily() {
+      if (!document.fullscreenElement) return;
+
+      document.body.classList.add('controls-visible');
+
+      // 清除之前的計時器
+      if (controlsTimeout) {
+        clearTimeout(controlsTimeout);
+      }
+
+      // 3 秒後自動隱藏
+      controlsTimeout = setTimeout(() => {
+        document.body.classList.remove('controls-visible');
+      }, 3000);
+    }
+
+    // 全螢幕時點擊顯示控制元件
+    viewport.addEventListener('click', (e) => {
+      // 避免觸發控制元件本身的點擊
+      if (e.target === viewport || e.target === track || e.target.closest('.marquee-content')) {
+        showControlsTemporarily();
+      }
+    });
+
+    // 觸控支援
+    viewport.addEventListener('touchstart', (e) => {
+      if (e.target === viewport || e.target === track || e.target.closest('.marquee-content')) {
+        showControlsTemporarily();
+      }
+    });
+
+    // 連線狀態指示燈點擊開啟除錯面板
+    indicator.addEventListener('click', (e) => {
+      e.stopPropagation();
+      debugPanel.classList.toggle('visible');
+    });
+
+    // ============ 視窗大小變化 ============
+    let resizeTimeout = null;
+    window.addEventListener('resize', () => {
+      console.log('[RESIZE] Window resized to', window.innerWidth);
+
+      // 防抖：延遲回報寬度變化
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'reportWidth',
+            actualWidth: window.innerWidth
+          }));
+          console.log('[RESIZE] Reported new width:', window.innerWidth);
+        }
+      }, 300);
+    });
+
+    // ============ 初始化 ============
+    function init() {
+      console.log('[INIT] Player starting with config:', config);
+
+      // 初始化內容
+      updateMarqueeContent();
+      applyStyles();
+
+      // 等待字體載入
+      if (document.fonts) {
+        document.fonts.ready.then(() => {
+          contentWidth = content1.offsetWidth;
+          console.log('[INIT] Fonts loaded, content width:', contentWidth);
+        });
+      }
+
+      // 開始渲染
+      render();
+
+      // 連線 WebSocket
+      connect();
+
+      // 更新連線狀態
+      updateConnectionStatus('reconnecting');
+
+      console.log('[INIT] Player ready');
+    }
+
+    // 頁面載入後初始化
+    window.addEventListener('DOMContentLoaded', init);
+
+    // 清理
+    window.addEventListener('beforeunload', () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+      if (ws) {
+        ws.close();
+      }
+    });
+  </script>
+</body>
+</html>

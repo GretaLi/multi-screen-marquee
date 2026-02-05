@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>跑馬燈控制台</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Noto+Serif+TC:wght@700;900&family=LXGW+WenKai+TC&family=Cubic+11&family=Dela+Gothic+One&family=Rampart+One&family=Hachi+Maru+Pop&family=Yusei+Magic&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      /* Light Theme - GitHub Style */
+      --bg-primary: #ffffff;
+      --bg-secondary: #f6f8fa;
+      --bg-tertiary: #f6f8fa;
+      --border-color: #d0d7de;
+      --text-primary: #1f2328;
+      --text-secondary: #656d76;
+      --accent-primary: #0969da;
+      --accent-primary-hover: #0550ae;
+      --success: #1a7f37;
+      --success-hover: #116329;
+      --warning: #9a6700;
+      --warning-hover: #7d5500;
+      --error: #cf222e;
+      --error-hover: #a40e26;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    h1 {
+      font-size: 24px;
+      color: var(--text-primary);
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--error);
+    }
+
+    .status-dot.connected {
+      background: var(--success);
+    }
+
+    .section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: var(--text-primary);
+    }
+
+    .section h3 {
+      font-size: 14px;
+      margin: 15px 0 10px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 5px;
+    }
+
+    /* 跑馬燈設定 */
+    .marquee-settings {
+      display: grid;
+      gap: 15px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-group label {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--text-primary);
+      font-size: 16px;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+
+    .form-group select {
+      cursor: pointer;
+    }
+
+    .form-group textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+
+    .form-row-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+
+    /* Color Picker */
+    .color-picker-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .color-picker-wrapper input[type="color"] {
+      width: 50px;
+      height: 40px;
+      padding: 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .color-picker-wrapper input[type="text"] {
+      flex: 1;
+      text-transform: uppercase;
+    }
+
+    /* 按鈕 */
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-sm {
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+
+    .btn-primary {
+      background: #2da44e;
+      color: #fff;
+      border: 1px solid rgba(31, 35, 40, 0.15);
+    }
+
+    .btn-primary:hover {
+      background: #2c974b;
+    }
+
+    .btn-success {
+      background: #2da44e;
+      color: #fff;
+      border: 1px solid rgba(31, 35, 40, 0.15);
+    }
+
+    .btn-success:hover {
+      background: #2c974b;
+    }
+
+    .btn-warning {
+      background: var(--bg-secondary);
+      color: var(--warning);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-warning:hover {
+      background: #f3f4f6;
+      border-color: var(--text-secondary);
+    }
+
+    .btn-danger {
+      background: var(--error);
+      color: #fff;
+      border: 1px solid rgba(31, 35, 40, 0.15);
+    }
+
+    .btn-danger:hover {
+      background: var(--error-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: #f3f4f6;
+      border-color: var(--text-secondary);
+    }
+
+    /* GitHub 風格按鈕 - 用於播放器列表 */
+    .btn-morandi {
+      background: var(--bg-secondary);
+      color: var(--accent-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-morandi:hover {
+      background: #f3f4f6;
+      border-color: var(--text-secondary);
+    }
+
+    .btn-morandi-green {
+      background: #2da44e;
+      color: #fff;
+      border: 1px solid rgba(31, 35, 40, 0.15);
+    }
+
+    .btn-morandi-green:hover {
+      background: #2c974b;
+    }
+
+    .btn-morandi-rose {
+      background: var(--bg-secondary);
+      color: var(--warning);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-morandi-rose:hover {
+      background: #f3f4f6;
+      border-color: var(--text-secondary);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 15px;
+    }
+
+    /* Player 列表 */
+    .player-list {
+      display: grid;
+      gap: 15px;
+    }
+
+    .player-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 15px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .player-info h3 {
+      font-size: 16px;
+      margin-bottom: 5px;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    .player-info p {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .player-config {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .player-config input {
+      width: 70px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 8px;
+      color: var(--text-primary);
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+
+    .player-config input:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+
+    .player-config label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .config-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* RWD for player-card */
+    @media (max-width: 600px) {
+      .player-card {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .player-config {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .player-config .btn {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+
+      .player-config input {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .player-config {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .config-field:nth-child(3) {
+        grid-column: 1 / -1;
+      }
+
+      .player-config input {
+        width: 100%;
+      }
+    }
+
+    /* 狀態資訊 */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .info-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+    }
+
+    .info-card .value {
+      font-size: 32px;
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+
+    .info-card .label {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 5px;
+    }
+
+    /* 空狀態 */
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state p {
+      margin-top: 10px;
+    }
+
+    /* Keep-alive 狀態 */
+    .keep-alive-status {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* 預覽區 */
+    .preview-container {
+      background: #000;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      overflow: hidden;
+      position: relative;
+      height: 120px;
+      display: flex;
+      align-items: center;
+    }
+
+    .preview-marquee {
+      position: absolute;
+      white-space: nowrap;
+      font-size: 48px;
+      font-weight: bold;
+      color: var(--accent-primary);
+      animation: preview-scroll 10s linear infinite;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .preview-marquee img {
+      height: 60px;
+      object-fit: contain;
+    }
+
+    @keyframes preview-scroll {
+      from { transform: translateX(100%); }
+      to { transform: translateX(-100%); }
+    }
+
+    /* 圖片管理 */
+    .image-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .image-item {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid var(--border-color);
+    }
+
+    .image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .image-item .remove-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 20px;
+      height: 20px;
+      background: var(--error);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .image-item.selected {
+      border-color: var(--accent-primary);
+    }
+
+    /* Canvas 繪圖區 */
+    .canvas-section {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+
+    .canvas-toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    .canvas-toolbar label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .canvas-toolbar input[type="range"] {
+      width: 100px;
+    }
+
+    .canvas-container {
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 透明背景棋盤格 */
+    .canvas-container.transparent {
+      background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 20px 20px;
+    }
+
+    .canvas-container canvas {
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* 背景選項 */
+    .canvas-bg-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .canvas-bg-option input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .canvas-bg-option input[type="color"]:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Log */
+    .log-container {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-time {
+      color: var(--text-secondary);
+    }
+
+    .log-msg {
+      color: var(--text-primary);
+    }
+
+    .log-entry.error .log-msg {
+      color: var(--error);
+    }
+
+    .log-entry.success .log-msg {
+      color: var(--success);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    .tab-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 8px 8px 0 0;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+    }
+
+    .tab-btn.active {
+      background: var(--accent-primary);
+      color: #fff;
+      border-color: var(--accent-primary);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Global RWD */
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+
+      .section {
+        padding: 15px;
+      }
+
+      .btn {
+        padding: 10px 16px;
+        font-size: 14px;
+      }
+
+      .btn-group {
+        flex-direction: column;
+      }
+
+      .btn-group .btn {
+        width: 100%;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .info-card .value {
+        font-size: 24px;
+      }
+
+      .form-row-4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .tabs {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>跑馬燈控制台</h1>
+      <div class="status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">未連線</span>
+        <span class="keep-alive-status" id="keepAliveStatus"></span>
+      </div>
+    </header>
+
+    <!-- 狀態資訊 -->
+    <div class="section">
+      <h2>系統狀態</h2>
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="value" id="playerCount">0</div>
+          <div class="label">在線播放器</div>
+        </div>
+        <div class="info-card">
+          <div class="value" id="totalWidth">0px</div>
+          <div class="label">總螢幕寬度</div>
+        </div>
+        <div class="info-card">
+          <div class="value" id="uptime">--:--:--</div>
+          <div class="label">運行時間</div>
+        </div>
+        <div class="info-card">
+          <div class="value" id="serverTime">--:--:--</div>
+          <div class="label">伺服器時間</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 跑馬燈設定 -->
+    <div class="section">
+      <h2>跑馬燈設定</h2>
+      <div class="marquee-settings">
+        <!-- 文字內容 -->
+        <div class="form-group">
+          <label>跑馬燈文字</label>
+          <textarea id="marqueeText" placeholder="輸入跑馬燈文字...">歡迎蒞臨！Welcome to the Exhibition!</textarea>
+        </div>
+
+        <!-- 基本設定 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>速度 (px/sec)</label>
+            <input type="number" id="marqueeSpeed" value="120" min="10" max="500">
+          </div>
+        </div>
+
+        <h3>樣式設定</h3>
+
+        <!-- 字型設定 -->
+        <div class="form-row-4">
+          <div class="form-group">
+            <label>字型</label>
+            <select id="fontFamily">
+              <option value="'Noto Sans TC', sans-serif">Noto Sans TC (黑體)</option>
+              <option value="'Noto Serif TC', serif">Noto Serif TC (明體)</option>
+              <option value="'LXGW WenKai TC', cursive">霞鶩文楷</option>
+              <option value="'Cubic 11', monospace">Cubic 11 (像素)</option>
+              <option value="'Dela Gothic One', cursive">Dela Gothic One</option>
+              <option value="'Rampart One', cursive">Rampart One</option>
+              <option value="'Hachi Maru Pop', cursive">Hachi Maru Pop</option>
+              <option value="'Yusei Magic', sans-serif">Yusei Magic</option>
+              <option value="system-ui, sans-serif">系統預設</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>字體大小 (px)</label>
+            <input type="number" id="fontSize" value="120" min="20" max="500">
+          </div>
+          <div class="form-group">
+            <label>字重</label>
+            <select id="fontWeight">
+              <option value="400">Normal (400)</option>
+              <option value="700" selected>Bold (700)</option>
+              <option value="900">Black (900)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>文字間距 (px)</label>
+            <input type="number" id="letterSpacing" value="0" min="-10" max="50">
+          </div>
+        </div>
+
+        <!-- 顏色設定 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>文字顏色</label>
+            <div class="color-picker-wrapper">
+              <input type="color" id="textColorPicker" value="#58a6ff">
+              <input type="text" id="textColor" value="#58a6ff" placeholder="#58a6ff">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>背景顏色</label>
+            <div class="color-picker-wrapper">
+              <input type="color" id="bgColorPicker" value="#000000">
+              <input type="text" id="bgColor" value="#000000" placeholder="#000000">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>文字陰影顏色</label>
+            <div class="color-picker-wrapper">
+              <input type="color" id="shadowColorPicker" value="#58a6ff">
+              <input type="text" id="shadowColor" value="#58a6ff" placeholder="#58a6ff">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>陰影模糊 (px)</label>
+            <input type="number" id="shadowBlur" value="20" min="0" max="100">
+          </div>
+        </div>
+
+        <h3>圖片與繪圖</h3>
+
+        <!-- Tabs for Image/Canvas -->
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('image')">插入圖片</button>
+          <button class="tab-btn" onclick="switchTab('canvas')">繪圖畫布</button>
+        </div>
+
+        <!-- 圖片上傳 -->
+        <div class="tab-content active" id="tab-image">
+          <div class="form-row">
+            <div class="form-group">
+              <label>從網址載入圖片</label>
+              <input type="url" id="imageUrl" placeholder="https://example.com/image.png">
+            </div>
+            <div class="form-group">
+              <label>或上傳圖片</label>
+              <input type="file" id="imageFile" accept="image/*" multiple>
+            </div>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-secondary" onclick="addImageFromUrl()">從網址新增</button>
+            <button class="btn btn-sm btn-danger" onclick="clearAllImages()">清除所有圖片</button>
+          </div>
+          <div class="image-list" id="imageList"></div>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">
+            提示：圖片會插入在文字前方。點擊圖片可選取/取消。
+          </p>
+        </div>
+
+        <!-- Canvas 繪圖 -->
+        <div class="tab-content" id="tab-canvas">
+          <div class="canvas-section">
+            <div class="canvas-toolbar">
+              <label>畫筆顏色</label>
+              <input type="color" id="brushColor" value="#00d4ff">
+              <label>畫筆大小</label>
+              <input type="range" id="brushSize" min="1" max="50" value="5">
+              <span id="brushSizeValue">5px</span>
+              <div class="canvas-bg-option">
+                <input type="checkbox" id="canvasTransparent" checked onchange="updateCanvasBg()">
+                <label for="canvasTransparent">透明背景</label>
+              </div>
+              <div class="canvas-bg-option">
+                <label>背景色</label>
+                <input type="color" id="canvasBgColor" value="#ffffff" onchange="updateCanvasBg()">
+              </div>
+              <button class="btn btn-sm btn-secondary" onclick="clearCanvas()">清除畫布</button>
+              <button class="btn btn-sm btn-primary" onclick="useCanvasAsImage()">使用繪圖作為圖片</button>
+            </div>
+            <div class="canvas-container transparent" id="canvasContainer">
+              <canvas id="drawCanvas" width="800" height="150"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="updateMarquee()">更新跑馬燈</button>
+        </div>
+
+        <!-- 預覽 -->
+        <div class="form-group" style="margin-top: 15px;">
+          <label>預覽</label>
+          <div class="preview-container" id="previewContainer">
+            <div class="preview-marquee" id="previewMarquee">歡迎蒞臨！Welcome to the Exhibition!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 播放器列表 -->
+    <div class="section">
+      <h2>播放器列表</h2>
+      <div class="btn-group" style="margin-bottom: 15px;">
+        <button class="btn btn-morandi-green" onclick="quickApply()">一鍵套用配置</button>
+        <button class="btn btn-morandi-rose" onclick="resetStartAt()">重置同步時間</button>
+        <button class="btn btn-morandi" onclick="refreshPlayers()">重新整理列表</button>
+      </div>
+      <div class="player-list" id="playerList">
+        <div class="empty-state">
+          <p>尚無播放器連線</p>
+          <p>請開啟 <code>/player</code> 頁面</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 系統日誌 -->
+    <div class="section">
+      <h2>系統日誌</h2>
+      <div class="log-container" id="logContainer"></div>
+    </div>
+  </div>
+
+  <script>
+    // ============ 狀態變數 ============
+    let ws = null;
+    let isConnected = false;
+    let startAt = null;
+    let serverNow = null;
+    let lastSyncPerfNow = null;
+    let players = [];
+    let reconnectAttempts = 0;
+    let keepAliveInterval = null;
+
+    // 圖片列表
+    let images = [];
+
+    // Canvas 相關
+    let canvas, ctx;
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+
+    // ============ WebSocket 連線 ============
+    function getWsUrl() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}`;
+    }
+
+    function connect() {
+      const url = getWsUrl();
+      log(`正在連線到 ${url}...`);
+
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        isConnected = true;
+        reconnectAttempts = 0;
+        updateStatus(true);
+        log('WebSocket 已連線', 'success');
+
+        ws.send(JSON.stringify({
+          type: 'hello',
+          role: 'controller'
+        }));
+
+        startKeepAlive();
+      };
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        handleMessage(msg);
+      };
+
+      ws.onclose = () => {
+        isConnected = false;
+        updateStatus(false);
+        log('WebSocket 已斷線', 'error');
+        stopKeepAlive();
+
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+        reconnectAttempts++;
+        log(`${delay / 1000} 秒後重新連線...`);
+        setTimeout(connect, delay);
+      };
+
+      ws.onerror = (err) => {
+        log('WebSocket 錯誤', 'error');
+      };
+    }
+
+    function handleMessage(msg) {
+      switch (msg.type) {
+        case 'init':
+          startAt = msg.startAt;
+          serverNow = msg.now;
+          lastSyncPerfNow = performance.now();
+          log(`收到 init: startAt=${new Date(startAt).toISOString()}`);
+          break;
+
+        case 'tick':
+          serverNow = msg.now;
+          lastSyncPerfNow = performance.now();
+          updateTimeDisplay();
+          break;
+
+        case 'players':
+          players = msg.list;
+          renderPlayerList();
+          document.getElementById('playerCount').textContent = players.length;
+          // 計算總螢幕寬度
+          const totalWidth = players.reduce((sum, p) => sum + (p.actualWidth || 0), 0);
+          document.getElementById('totalWidth').textContent = totalWidth + 'px';
+          break;
+
+        case 'reset':
+          startAt = msg.startAt;
+          serverNow = msg.now;
+          lastSyncPerfNow = performance.now();
+          log('同步時間已重置', 'success');
+          break;
+      }
+    }
+
+    // ============ Keep-Alive ============
+    function startKeepAlive() {
+      stopKeepAlive();
+      keepAliveInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/health');
+          document.getElementById('keepAliveStatus').textContent =
+            `(health OK @ ${new Date().toLocaleTimeString()})`;
+        } catch (e) {
+          document.getElementById('keepAliveStatus').textContent =
+            `(health FAIL)`;
+        }
+      }, 30000);
+    }
+
+    function stopKeepAlive() {
+      if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+      }
+    }
+
+    // ============ UI 更新 ============
+    function updateStatus(connected) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      if (connected) {
+        dot.classList.add('connected');
+        text.textContent = '已連線';
+      } else {
+        dot.classList.remove('connected');
+        text.textContent = '未連線';
+      }
+    }
+
+    function updateTimeDisplay() {
+      if (!startAt || !serverNow) return;
+
+      const syncedNow = serverNow + (performance.now() - lastSyncPerfNow);
+
+      const uptime = syncedNow - startAt;
+      const hours = Math.floor(uptime / 3600000);
+      const mins = Math.floor((uptime % 3600000) / 60000);
+      const secs = Math.floor((uptime % 60000) / 1000);
+      document.getElementById('uptime').textContent =
+        `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+      const serverDate = new Date(syncedNow);
+      document.getElementById('serverTime').textContent =
+        serverDate.toLocaleTimeString();
+    }
+
+    function renderPlayerList() {
+      const container = document.getElementById('playerList');
+
+      if (players.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p>尚無播放器連線</p>
+            <p>請開啟 <code>/player</code> 頁面</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = players.map((p, idx) => `
+        <div class="player-card" data-player-id="${p.playerId}">
+          <div class="player-info">
+            <h3>#${idx + 1} ${p.playerId}</h3>
+            <p>連線於 ${new Date(p.connectedAt).toLocaleTimeString()}</p>
+            <p style="color: var(--accent-primary); font-size: 13px;">
+              實際寬度: <strong>${p.actualWidth ? p.actualWidth + 'px' : '未回報'}</strong>
+              ${p.config.offsetPx !== undefined ? ` | 偏移: <strong>${p.config.offsetPx}px</strong>` : ''}
+            </p>
+          </div>
+          <div class="player-config">
+            <div class="config-field">
+              <label>螢幕數</label>
+              <input type="number" class="input-screenCount" value="${p.config.screenCount}" min="1" max="10">
+            </div>
+            <div class="config-field">
+              <label>螢幕位置</label>
+              <input type="number" class="input-screenIndex" value="${p.config.screenIndex}" min="1" max="10">
+            </div>
+            <div class="config-field">
+              <label>偏移(px)</label>
+              <input type="number" class="input-offsetPx" value="${p.config.offsetPx || 0}" placeholder="auto">
+            </div>
+            <button class="btn btn-primary" onclick="applyConfig('${p.playerId}')">套用</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ============ 樣式收集 ============
+    function getMarqueeStyles() {
+      return {
+        fontFamily: document.getElementById('fontFamily').value,
+        fontSize: parseInt(document.getElementById('fontSize').value) || 120,
+        fontWeight: document.getElementById('fontWeight').value,
+        letterSpacing: parseInt(document.getElementById('letterSpacing').value) || 0,
+        textColor: document.getElementById('textColor').value || '#00d4ff',
+        bgColor: document.getElementById('bgColor').value || '#000000',
+        shadowColor: document.getElementById('shadowColor').value || '#00d4ff',
+        shadowBlur: parseInt(document.getElementById('shadowBlur').value) || 20
+      };
+    }
+
+    // ============ 預覽更新 ============
+    function updatePreview() {
+      const text = document.getElementById('marqueeText').value;
+      const styles = getMarqueeStyles();
+
+      const previewContainer = document.getElementById('previewContainer');
+      const previewMarquee = document.getElementById('previewMarquee');
+
+      // 背景
+      previewContainer.style.backgroundColor = styles.bgColor;
+
+      // 文字樣式
+      previewMarquee.style.fontFamily = styles.fontFamily;
+      previewMarquee.style.fontSize = '48px'; // 預覽固定大小
+      previewMarquee.style.fontWeight = styles.fontWeight;
+      previewMarquee.style.letterSpacing = styles.letterSpacing + 'px';
+      previewMarquee.style.color = styles.textColor;
+      previewMarquee.style.textShadow = `0 0 ${styles.shadowBlur}px ${styles.shadowColor}`;
+
+      // 組合內容（圖片 + 文字）
+      let html = '';
+      images.forEach(img => {
+        html += `<img src="${img}" alt="marquee image" style="height: 60px; object-fit: contain;">`;
+      });
+      html += `<span>${text}</span>`;
+
+      previewMarquee.innerHTML = html;
+    }
+
+    // ============ 操作函數 ============
+    function updateMarquee() {
+      const text = document.getElementById('marqueeText').value;
+      const speed = parseInt(document.getElementById('marqueeSpeed').value) || 120;
+      const styles = getMarqueeStyles();
+
+      ws.send(JSON.stringify({
+        type: 'updateMarquee',
+        text,
+        speed,
+        styles,
+        images: images
+      }));
+
+      updatePreview();
+      log(`跑馬燈已更新`, 'success');
+    }
+
+    function quickApply() {
+      ws.send(JSON.stringify({
+        type: 'quickApply'
+      }));
+
+      log(`一鍵套用: ${players.length} 台播放器（自動計算各螢幕偏移）`, 'success');
+    }
+
+    function applyConfig(playerId) {
+      const card = document.querySelector(`[data-player-id="${playerId}"]`);
+      const screenCount = parseInt(card.querySelector('.input-screenCount').value);
+      const screenIndex = parseInt(card.querySelector('.input-screenIndex').value);
+      const offsetPxInput = card.querySelector('.input-offsetPx').value;
+      const offsetPx = offsetPxInput ? parseInt(offsetPxInput) : 0;
+
+      ws.send(JSON.stringify({
+        type: 'setConfig',
+        playerId,
+        screenCount,
+        screenIndex,
+        offsetPx
+      }));
+
+      log(`已更新 ${playerId} 配置 (offset: ${offsetPx}px)`, 'success');
+    }
+
+    function resetStartAt() {
+      if (confirm('確定要重置同步時間？這會讓所有播放器重新從頭開始。')) {
+        ws.send(JSON.stringify({
+          type: 'resetStartAt'
+        }));
+      }
+    }
+
+    function refreshPlayers() {
+      ws.send(JSON.stringify({
+        type: 'hello',
+        role: 'controller'
+      }));
+      log('正在重新整理播放器列表...');
+    }
+
+    // ============ 顏色同步 ============
+    function setupColorSync(pickerId, textId) {
+      const picker = document.getElementById(pickerId);
+      const text = document.getElementById(textId);
+
+      picker.addEventListener('input', () => {
+        text.value = picker.value;
+        updatePreview();
+      });
+
+      text.addEventListener('input', () => {
+        if (/^#[0-9A-Fa-f]{6}$/.test(text.value)) {
+          picker.value = text.value;
+        }
+        updatePreview();
+      });
+    }
+
+    // ============ Tabs ============
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    // ============ 圖片管理 ============
+    function renderImageList() {
+      const container = document.getElementById('imageList');
+      container.innerHTML = images.map((img, idx) => `
+        <div class="image-item">
+          <img src="${img}" alt="Image ${idx + 1}">
+          <button class="remove-btn" onclick="removeImage(${idx})">×</button>
+        </div>
+      `).join('');
+      updatePreview();
+    }
+
+    function addImageFromUrl() {
+      const url = document.getElementById('imageUrl').value.trim();
+      if (url) {
+        images.push(url);
+        document.getElementById('imageUrl').value = '';
+        renderImageList();
+        log(`已新增圖片: ${url.substring(0, 30)}...`, 'success');
+      }
+    }
+
+    function removeImage(idx) {
+      images.splice(idx, 1);
+      renderImageList();
+    }
+
+    function clearAllImages() {
+      images = [];
+      renderImageList();
+      log('已清除所有圖片', 'success');
+    }
+
+    // 檔案上傳
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('imageFile').addEventListener('change', (e) => {
+        const files = e.target.files;
+        for (const file of files) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            images.push(event.target.result);
+            renderImageList();
+          };
+          reader.readAsDataURL(file);
+        }
+        e.target.value = '';
+        log(`已上傳 ${files.length} 張圖片`, 'success');
+      });
+    });
+
+    // ============ Canvas 繪圖 ============
+    function initCanvas() {
+      canvas = document.getElementById('drawCanvas');
+      ctx = canvas.getContext('2d');
+
+      // 初始化背景（預設透明，不記錄日誌）
+      updateCanvasBg(false);
+
+      // 滑鼠事件
+      canvas.addEventListener('mousedown', startDrawing);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stopDrawing);
+      canvas.addEventListener('mouseout', stopDrawing);
+
+      // 觸控事件
+      canvas.addEventListener('touchstart', handleTouchStart);
+      canvas.addEventListener('touchmove', handleTouchMove);
+      canvas.addEventListener('touchend', stopDrawing);
+
+      // 畫筆大小顯示
+      document.getElementById('brushSize').addEventListener('input', (e) => {
+        document.getElementById('brushSizeValue').textContent = e.target.value + 'px';
+      });
+    }
+
+    function updateCanvasBg(shouldClear = true) {
+      const isTransparent = document.getElementById('canvasTransparent').checked;
+      const container = document.getElementById('canvasContainer');
+
+      if (isTransparent) {
+        container.classList.add('transparent');
+        document.getElementById('canvasBgColor').disabled = true;
+      } else {
+        container.classList.remove('transparent');
+        document.getElementById('canvasBgColor').disabled = false;
+      }
+
+      // 清除畫布並套用新背景（靜默模式，不記錄日誌）
+      if (shouldClear && canvas && ctx) {
+        clearCanvas(true);
+      }
+    }
+
+    function startDrawing(e) {
+      isDrawing = true;
+      [lastX, lastY] = getCanvasCoords(e);
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+
+      const [x, y] = getCanvasCoords(e);
+
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = document.getElementById('brushColor').value;
+      ctx.lineWidth = document.getElementById('brushSize').value;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      [lastX, lastY] = [x, y];
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+    }
+
+    function getCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return [
+        (e.clientX - rect.left) * scaleX,
+        (e.clientY - rect.top) * scaleY
+      ];
+    }
+
+    function handleTouchStart(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      startDrawing(mouseEvent);
+    }
+
+    function handleTouchMove(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      draw(mouseEvent);
+    }
+
+    function clearCanvas(silent = false) {
+      const isTransparent = document.getElementById('canvasTransparent').checked;
+      const bgColor = document.getElementById('canvasBgColor').value;
+
+      // 先清除整個畫布
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 如果不是透明背景，填充背景色
+      if (!isTransparent) {
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      if (!silent) {
+        log('畫布已清除', 'success');
+      }
+    }
+
+    function useCanvasAsImage() {
+      const dataUrl = canvas.toDataURL('image/png');
+      images.push(dataUrl);
+      renderImageList();
+      switchTab('image');
+      log('已將繪圖加入圖片列表', 'success');
+    }
+
+    // ============ 日誌 ============
+    function log(message, type = '') {
+      const container = document.getElementById('logContainer');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `
+        <span class="log-time">[${new Date().toLocaleTimeString()}]</span>
+        <span class="log-msg">${message}</span>
+      `;
+      container.insertBefore(entry, container.firstChild);
+
+      while (container.children.length > 100) {
+        container.removeChild(container.lastChild);
+      }
+    }
+
+    // ============ 初始化 ============
+    document.addEventListener('DOMContentLoaded', () => {
+      // 顏色同步
+      setupColorSync('textColorPicker', 'textColor');
+      setupColorSync('bgColorPicker', 'bgColor');
+      setupColorSync('shadowColorPicker', 'shadowColor');
+
+      // Canvas 初始化
+      initCanvas();
+
+      // 樣式變更時更新預覽
+      ['fontFamily', 'fontSize', 'fontWeight', 'letterSpacing', 'shadowBlur'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updatePreview);
+        document.getElementById(id).addEventListener('change', updatePreview);
+      });
+
+      // 文字變更時更新預覽
+      document.getElementById('marqueeText').addEventListener('input', updatePreview);
+
+      // 初始預覽
+      updatePreview();
+    });
+
+    // 定時更新時間顯示
+    setInterval(updateTimeDisplay, 1000);
+
+    // 開始連線
+    connect();
+
+    log('控制台已啟動');
+  </script>
+</body>
+</html>
